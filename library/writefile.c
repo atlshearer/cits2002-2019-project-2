@@ -253,6 +253,7 @@ int SIFS_writefile(const char *volumename, const char *pathname,
     SIFS_writedirblock(vol, curr_block_id, header, &curr_dir);
 
 
+    // cleanup
     fclose(vol);
 
     // Free parsed_path
