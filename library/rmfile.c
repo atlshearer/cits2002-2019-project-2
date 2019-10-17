@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 // remove an existing file from an existing volume
 int SIFS_rmfile(const char *volumename, const char *pathname)
@@ -16,7 +17,7 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
      #define    SIFS_ENOMEM    11    // Memory allocation failed
      */
     
-    FILE *vol = fopen(volumename, "r");
+    FILE *vol = fopen(volumename, "r+");
     SIFS_VOLUME_HEADER header;
     char** parsed_path = NULL;
     size_t path_depth  = 0;
@@ -52,18 +53,21 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
         return 1;
     }
     
-    
     // find target index
     for (size_t i = 0; i < parent.nentries; i++) {
-        if (parent.entries[i].blockID == target_id) {
+        if (parent.entries[i].blockID == target_id &&
+            strcmp(target.filenames[parent.entries[i].fileindex], parsed_path[path_depth - 1]) == 0) {
+            printf("target_id = %i\n", target_id);
             // Check if other copies exist
             if (target.nfiles > 1) {
+                printf("target.nfiles = %i\n", target.nfiles);
                 // Remove filename from target
                 for (size_t j = parent.entries[i].fileindex; j < target.nfiles - 1; j++) {
                     strcpy(target.filenames[j], target.filenames[j + 1]);
                 }
                 
                 target.nfiles--;
+                printf("target.nfiles = %i\n", target.nfiles);
                 
                 // Write back to file
                 SIFS_writefileblock(vol, target_id, header, &target);
@@ -71,7 +75,8 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
                 // Remove file from archive
                 out_buffer = SIFS_UNUSED;
                 SIFS_writeblocktype(vol, target_id, header, &out_buffer, 1);
-                SIFS_writeblocktype(vol, target.firstblockID, header, &out_buffer, target.length);
+                printf("target.firstblockID = %i target.length = %zu\n", target.firstblockID, target.length);
+                SIFS_writeblocktype(vol, target.firstblockID, header, &out_buffer, (target.length + header.blocksize - 1) / header.blocksize);
             }
             
             // Remove reference in parent
@@ -82,12 +87,21 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
             parent.nentries--;
             
             // Write back to file
-            SIFS_writedirblock(vol, parent_id, header, &parent);
+            SIFS_DIRBLOCK tmp;
+            SIFS_getdirblock(vol, parent_id, header, &tmp);
+            if (SIFS_writedirblock(vol, parent_id, header, &parent) != 0) {
+                return 1;
+            }
+            SIFS_getdirblock(vol, parent_id, header, &tmp);
+            
+            break;
         }
     }
+
     
+    fclose(vol);
     
-    SIFS_errno	= SIFS_ENOTYET;
-    return 1;
+    SIFS_errno	= SIFS_EOK;
+    return 0;
 }
 

@@ -65,6 +65,7 @@ extern  char** SIFS_parsepathname(const char *pathname, size_t* path_depth);
 // gets file block and parent block by path name
 extern int SIFS_getfileblockid(FILE* volume, char **pathname, size_t path_depth, SIFS_VOLUME_HEADER vol_header, SIFS_BLOCKID* parent, SIFS_BLOCKID* target);
 
+
 // reader helpers
 
 // get header and store in vol_header
