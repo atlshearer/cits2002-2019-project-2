@@ -31,6 +31,8 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     SIFS_BLOCKID new_block_id;
     int block_found = 0;
     
+    SIFS_BIT bitmap_buffer;
+    
 
     //  VOLUME CREATION FAILED
     if (vol == NULL)
@@ -58,7 +60,7 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
 
         for (size_t j = 0; j < curr_dir.nentries; j++)
         {
-            /*SIFS_BIT block_type;
+            SIFS_BIT block_type;
             if (SIFS_getblocktype(vol, curr_dir.entries[j].blockID, header, &block_type) != 0) {
                 return 1;
             }
@@ -69,11 +71,8 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
                     return 1;
                     
                 case SIFS_DIR:
-                    //SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
-                    
-                    fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[j].blockID*header.blocksize), SEEK_SET );
-                    fread(&next_dir, sizeof next_dir, 1, vol);
-                    
+                    SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
+                    next_block_id = curr_dir.entries[j].blockID;
                     break;
                     
                 case SIFS_FILE:
@@ -87,12 +86,8 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
                 default:
                     SIFS_errno = SIFS_ENOTVOL; // If blocktype is invalid vol is malformed
                     return 1;
-            }*/
+            }
             
-            // NOT CHECKING BLOCK TYPE ######################################
-            fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[j].blockID*header.blocksize), SEEK_SET );
-            fread(&next_dir, sizeof next_dir, 1, vol);
-            next_block_id = curr_dir.entries[j].blockID;
 
             if (strcmp(next_dir.name, parsed_path[i]) == 0)
             {
@@ -113,7 +108,7 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
             curr_dir = next_dir;
             curr_block_id = next_block_id;
         } else if (i == path_depth - 1) {
-
+            // nothing found, in parent dir, target dir not existant
         } else {
             SIFS_errno = SIFS_ENOENT;
             return 1;
@@ -121,14 +116,11 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     }
 
     // will be in dir that new dir should be made in
-
     if (curr_dir.nentries == SIFS_MAX_ENTRIES)
     {
         SIFS_errno = SIFS_EMAXENTRY;
         return 1;
     }
-
-
 
     // create dir object to be written    
     memset(&new_dir, 0, sizeof(new_dir));
@@ -137,11 +129,10 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     new_dir.nentries = 0;
 
     // find space for obj
-    fseek(vol, sizeof header, SEEK_SET);
     for (size_t i = 0; i < header.nblocks; i++)
     {
         SIFS_BIT block_type;
-        fread(&block_type, sizeof(block_type), 1, vol);
+        SIFS_getblocktype(vol, i, header, &block_type);
 
         if (block_type == SIFS_UNUSED)
         {
@@ -157,24 +148,18 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
         return 1;
     }
 
-    printf("Empty block found at BLOCKID = %i\n", new_block_id);
-
     // write to vol
-    fseek(vol, sizeof(header) + header.nblocks + new_block_id*header.blocksize, SEEK_SET);
-    int nwritten = fwrite(&new_dir, sizeof(new_dir), 1, vol);
-    printf("nwritten = %i\n", nwritten);
+    SIFS_writedirblock(vol, new_block_id, header, &new_dir);
 
     // update parent dir
     curr_dir.entries[curr_dir.nentries].blockID = new_block_id;
     curr_dir.nentries++;
     
-    fseek(vol, (sizeof header) + (header.nblocks) + curr_block_id*header.blocksize, SEEK_SET);
-    fwrite(&curr_dir, sizeof curr_dir, 1, vol);
+    SIFS_writedirblock(vol, curr_block_id, header, &curr_dir);
     
     // update bitmap
-    char bitmap_val = SIFS_DIR;
-    fseek(vol, sizeof(header) + new_block_id, SEEK_SET);
-    fwrite(&bitmap_val, sizeof bitmap_val, 1, vol);
+    bitmap_buffer = SIFS_DIR;
+    SIFS_writeblocktype(vol, new_block_id, header, &bitmap_buffer, 1);
 
 
     fclose(vol);
