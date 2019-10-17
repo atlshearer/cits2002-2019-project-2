@@ -4,7 +4,8 @@ HEADER		= $(PROJECT).h
 LIBRARY		= lib$(PROJECT).a
 
 APPLICATIONS	= sifs_mkvolume sifs_dirinfo sifs_mkdir sifs_rmdir\
-                  sifs_putrandom
+                  sifs_putrandom sifs_dumpfile sifs_fileinfo\
+                  sifs_rmfile
 
 # ----------------------------------------------------------------
 

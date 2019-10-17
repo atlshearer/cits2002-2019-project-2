@@ -162,6 +162,8 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     bitmap_buffer = SIFS_DIR;
     SIFS_writeblocktype(vol, new_block_id, header, &bitmap_buffer, 1);
 
+    
+    // cleanup
 
     fclose(vol);
 

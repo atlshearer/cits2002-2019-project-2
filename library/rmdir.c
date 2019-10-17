@@ -131,6 +131,13 @@ int SIFS_rmdir(const char *volumename, const char *pathname)
     // cleanup
     
     fclose(vol);
+    
+    // Free parsed_path
+    for (size_t i = 0; *(parsed_path + i); i++)
+    {
+        free(*(parsed_path + i));
+    }
+    free(parsed_path);
 
     SIFS_errno	= SIFS_EOK;
     return 0;

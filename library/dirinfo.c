@@ -35,7 +35,6 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
 
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
 
-
     // Read root block
     if (SIFS_getdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir)) {
         return 1;
@@ -158,6 +157,13 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
     }
 
     fclose(vol);
+    
+    // Free parsed_path
+    for (size_t i = 0; *(parsed_path + i); i++)
+    {
+        free(*(parsed_path + i));
+    }
+    free(parsed_path);
 
     SIFS_errno	= SIFS_ENOTYET;
     return 0;

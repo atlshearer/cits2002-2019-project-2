@@ -60,7 +60,12 @@ typedef struct
 extern  char** SIFS_parsepathname(const char *pathname, size_t* path_depth);
 
 
-// writer helpers
+// traversal helpers
+
+// gets file block and parent block by path name
+extern int SIFS_getfileblockid(FILE* volume, char **pathname, size_t path_depth, SIFS_VOLUME_HEADER vol_header, SIFS_BLOCKID* parent, SIFS_BLOCKID* target);
+
+// reader helpers
 
 // get header and store in vol_header
 extern  int SIFS_getheader(FILE* volume, SIFS_VOLUME_HEADER* vol_header);
@@ -71,11 +76,14 @@ extern  int SIFS_getdirblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HE
 // get file block located at block_id and store in file_block
 extern  int SIFS_getfileblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_FILEBLOCK* file_block);
 
+// get data starting at block located block_id
+extern  int SIFS_getdata(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, void* data, size_t nbytes);
+
 // get the type of block located at block_id and store in block_type
 extern  int SIFS_getblocktype(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_BIT* block_type);
 
 
-// reader helpers
+// writter helpers
 
 // write dir_block to block at location block_id
 extern  int SIFS_writedirblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_DIRBLOCK* dir_block);
@@ -84,7 +92,7 @@ extern  int SIFS_writedirblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_
 extern  int SIFS_writefileblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_FILEBLOCK* file_block);
 
 // write data starting at block located block_id
-extern  int SIFS_writedata(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_FILEBLOCK* data, size_t nbytes);
+extern  int SIFS_writedata(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, void* data, size_t nbytes);
 
 // write block_type to block at location block_id
 extern  int SIFS_writeblocktype(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_BIT* block_type, size_t nblocks);
