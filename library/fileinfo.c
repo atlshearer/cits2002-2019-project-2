@@ -7,3 +7,4 @@ int SIFS_fileinfo(const char *volumename, const char *pathname,
     SIFS_errno	= SIFS_ENOTYET;
     return 1;
 }
+

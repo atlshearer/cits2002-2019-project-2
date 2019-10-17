@@ -21,7 +21,6 @@ int SIFS_writefile(const char *volumename, const char *pathname,
     SIFS_VOLUME_HEADER header;
     char** parsed_path = NULL;
     size_t path_depth  = 0;
-    unsigned char data_md5[MD5_BYTELEN];
 
     SIFS_DIRBLOCK curr_dir;
     SIFS_DIRBLOCK next_dir;
@@ -37,7 +36,15 @@ int SIFS_writefile(const char *volumename, const char *pathname,
 
     int filename_index = 0;
     int file_exists = 0;
+    
+    unsigned char data_md5[MD5_BYTELEN];
+    char* old_md5 = malloc(sizeof(char) * (MD5_STRLEN + 1));
+    char* new_md5 = malloc(sizeof(char) * (MD5_STRLEN + 1));
 
+    if (!old_md5 || !new_md5) {
+        SIFS_errno = SIFS_ENOMEM;
+        return 1;
+    }
 
     if (vol == NULL)
     {
@@ -45,16 +52,18 @@ int SIFS_writefile(const char *volumename, const char *pathname,
         return 1;
     }
 
-
-    fread(&header, sizeof header, 1, vol);
+    SIFS_getheader(vol, &header);
 
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
 
     MD5_buffer(data, nbytes, data_md5);
+    memcpy(new_md5, MD5_format(data_md5), MD5_STRLEN);
+    new_md5[MD5_STRLEN] = 0;
 
     // Read root block
-    fseek(vol, header.nblocks, SEEK_CUR);
-    fread(&curr_dir, sizeof curr_dir, 1, vol);
+    if(SIFS_getdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir) != 0) {
+        return 1;
+    }
     curr_block_id = 0;
 
     // traverse down structure to target node
@@ -67,37 +76,33 @@ int SIFS_writefile(const char *volumename, const char *pathname,
         {
             SIFS_BIT block_type;
             next_block_id = curr_dir.entries[j].blockID;
-            fseek(vol, (sizeof(header) + next_block_id), SEEK_SET);    ////// ISSUE IN OTHER FILES
-            fread(&block_type, sizeof(block_type), 1, vol);
-
-            fseek(vol, sizeof(header) + (header.nblocks) + (curr_dir.entries[j].blockID*header.blocksize), SEEK_SET );
-
-            printf("path_depth = %li block_type = %c %s\n", path_depth, block_type, parsed_path[i]);
+            ////// ISSUE IN OTHER FILES #####################
+            SIFS_getblocktype(vol, next_block_id, header, &block_type);
 
             if (i != path_depth - 1 && block_type != SIFS_DIR)
             {
                 SIFS_errno = SIFS_ENOTDIR;
                 return 1;
             } else if (i == path_depth - 1 && block_type == SIFS_FILE) {
-                fread(&new_file_block, sizeof(new_file_block), 1, vol);
-
-                printf("%s %s\n", new_file_block.filenames[curr_dir.entries[j].fileindex], parsed_path[i]);
+                SIFS_getfileblock(vol, curr_dir.entries[j].blockID, header, &new_file_block);
 
                 if (strcmp(new_file_block.filenames[curr_dir.entries[j].fileindex], parsed_path[i]) == 0) {
                     SIFS_errno = SIFS_EEXIST;
                     return 1;
                 }
             } else if (i == path_depth - 1 && block_type == SIFS_DIR) {
-                fread(&next_dir, sizeof(next_dir), 1, vol);
-
-                printf("%s %s\n", next_dir.name, parsed_path[i]);
+                if (SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir) != 0) {
+                    return 1;
+                }
 
                 if (strcmp(next_dir.name, parsed_path[i]) == 0) {
                     SIFS_errno = SIFS_EEXIST;
                     return 1;
                 }
             } else {
-                fread(&next_dir, sizeof(next_dir), 1, vol);
+                if(SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir) != 0) {
+                    return 1;
+                }
 
                 if (strcmp(next_dir.name, parsed_path[i]) == 0)
                 {              
@@ -131,18 +136,19 @@ int SIFS_writefile(const char *volumename, const char *pathname,
     for (size_t i = 0; i < header.nblocks; i++)
     {
         SIFS_BIT block_type;
-        fseek(vol, (sizeof(header) + i), SEEK_SET);
-        fread(&block_type, sizeof(block_type), 1, vol);
+        SIFS_getblocktype(vol, i, header, &block_type);
 
         if (block_type == SIFS_FILE)
         {
-            fseek(vol, sizeof(header) + header.nblocks + i*header.blocksize, SEEK_SET);
-            fread(&new_file_block, sizeof(new_file_block), 1, vol);
-
-            if (strcmp(MD5_format(new_file_block.md5), MD5_format(data_md5)) == 0)
+            if (SIFS_getfileblock(vol, i, header, &new_file_block) != 0) {
+                return 1;
+            };
+            
+            memcpy(old_md5, MD5_format(new_file_block.md5), MD5_STRLEN);
+            old_md5[MD5_STRLEN] = 0;
+            
+            if (strcmp(old_md5, new_md5) == 0)
             {
-                printf("File match %s %s\n", MD5_format(new_file_block.md5), MD5_format(data_md5));
-
                 // Same file
                 if (new_file_block.nfiles >= SIFS_MAX_ENTRIES)
                 {
@@ -157,8 +163,7 @@ int SIFS_writefile(const char *volumename, const char *pathname,
                 filename_index = new_file_block.nfiles;
                 new_file_block.nfiles++;
 
-                fseek(vol, sizeof(header) + header.nblocks + i*header.blocksize, SEEK_SET);
-                fwrite(&new_file_block, sizeof(new_file_block), 1, vol);
+                SIFS_writefileblock(vol, i, header, &new_file_block);
 
                 break;
             }
@@ -169,11 +174,38 @@ int SIFS_writefile(const char *volumename, const char *pathname,
     {  
     
         // find space for obj
-        fseek(vol, sizeof(header), SEEK_SET);
         for (size_t i = 0; i < header.nblocks; i++)
         {
             SIFS_BIT block_type;
-            fread(&block_type, sizeof(block_type), 1, vol);
+            SIFS_getblocktype(vol, i, header, &block_type);
+            
+            if (block_type == SIFS_UNUSED)
+            {
+                if (space_found == 0)
+                {
+                    new_data_id = i;
+                }
+                
+                space_found++;
+                
+                if (space_found * header.blocksize >= nbytes)
+                {
+                    break;
+                }
+            } else {
+                space_found = 0;
+            }
+        }
+        
+        for (size_t i = 0; i < header.nblocks; i++)
+        {
+            if (new_data_id <= i && i < new_data_id + space_found) {
+                // overlap with space found for data
+                continue;
+            }
+            
+            SIFS_BIT block_type;
+            SIFS_getblocktype(vol, i, header, &block_type);
 
             if (block_type == SIFS_UNUSED)
             {
@@ -183,40 +215,11 @@ int SIFS_writefile(const char *volumename, const char *pathname,
             }
         }
 
-        for (size_t i = new_block_id + 1; i < header.nblocks; i++)
-        {
-            SIFS_BIT block_type;
-            fread(&block_type, sizeof(block_type), 1, vol);
-
-            printf("i = %li  block_type = %c  space_found = %i\n", i, block_type, space_found);
-
-            if (block_type == SIFS_UNUSED)
-            {
-                if (space_found == 0)
-                {
-                    new_data_id = i;
-                }
-                
-                space_found++;
-
-                if (space_found * header.blocksize >= nbytes)
-                {
-                    break;
-                }
-            } else {
-                space_found = 0;
-            }
-        }
-
-
-
         if (!space_found || !block_found)
         {
             SIFS_errno = SIFS_ENOSPC;
             return 1;
         }
-
-        printf("new_block_id = %i  new_data_id = %i space_found = %i\n", new_block_id, new_data_id, space_found);
 
         // create file block
         memset(&new_file_block, 0, sizeof(new_file_block));
@@ -228,26 +231,17 @@ int SIFS_writefile(const char *volumename, const char *pathname,
         strcpy(new_file_block.filenames[0], parsed_path[path_depth - 1]);
         
         // write file block
-        fseek(vol, sizeof(header) + header.nblocks + new_block_id*header.blocksize, SEEK_SET);
-        fwrite(&new_file_block, sizeof(new_file_block), 1, vol);
+        SIFS_writefileblock(vol, new_block_id, header, &new_file_block);
 
         // write data
-        fseek(vol, sizeof(header) + header.nblocks + new_data_id*header.blocksize, SEEK_SET);
-        fwrite(data, nbytes, 1, vol);
-        
+        SIFS_writedata(vol, new_data_id, header, data, nbytes);
 
         // update bitmap
         out_buffer = SIFS_FILE;
-        fseek(vol, sizeof(header) + new_block_id, SEEK_SET);
-        fwrite(&out_buffer, sizeof(out_buffer), 1, vol);
+        SIFS_writeblocktype(vol, new_block_id, header, &out_buffer, 1);
 
         out_buffer = SIFS_DATABLOCK;
-        fseek(vol, sizeof(header) + new_data_id, SEEK_SET);
-        for (size_t i = 0; i < space_found; i++)
-        {
-            fwrite(&out_buffer, sizeof(out_buffer), 1, vol);
-        }
-
+        SIFS_writeblocktype(vol, new_data_id, header, &out_buffer, space_found);
     }
     
     // update parent dir
@@ -256,10 +250,7 @@ int SIFS_writefile(const char *volumename, const char *pathname,
     curr_dir.nentries++;
 
     // write parent dir
-    fseek(vol, sizeof(header) + header.nblocks + curr_block_id*header.blocksize, SEEK_SET);
-    fwrite(&curr_dir, sizeof(curr_dir), 1, vol);
-
-
+    SIFS_writedirblock(vol, curr_block_id, header, &curr_dir);
 
 
     fclose(vol);
@@ -271,6 +262,10 @@ int SIFS_writefile(const char *volumename, const char *pathname,
     }
     free(parsed_path);
 
-    SIFS_errno	= SIFS_ENOTYET;
-    return 1;
+    // Free MD5 str stores
+    free(old_md5);
+    free(new_md5);
+    
+    return 0;
 }
+

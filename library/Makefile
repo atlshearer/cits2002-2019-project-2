@@ -4,7 +4,7 @@ LIBRARY	= libsifs.a
 
 OBJECTS	= mkvolume.o mkdir.o rmdir.o dirinfo.o\
 		writefile.o readfile.o rmfile.o fileinfo.o\
-		perror.o md5.o parsepathname.o
+		perror.o md5.o parsepathname.o util.o
 
 CC      = cc
 CFLAGS  = -std=c99 -Wall -pedantic

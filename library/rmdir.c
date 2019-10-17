@@ -114,3 +114,4 @@ int SIFS_rmdir(const char *volumename, const char *pathname)
     SIFS_errno	= SIFS_EOK;
     return 0;
 }
+

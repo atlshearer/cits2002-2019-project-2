@@ -22,3 +22,4 @@ extern  char    *MD5_file(const char *filenm);
 #if	defined(WANT_TESTING)
 extern	void	MD5_TESTALL(void);
 #endif
+

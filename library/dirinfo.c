@@ -7,6 +7,14 @@
 int SIFS_dirinfo(const char *volumename, const char *pathname,
                  char ***entrynames, uint32_t *nentries, time_t *modtime)
 {
+    /*
+#define    SIFS_EINVAL    1    // Invalid argument
+#define    SIFS_ENOVOL    3    // No such volume
+#define    SIFS_ENOENT    4    // No such file or directory entry
+#define    SIFS_ENOTVOL    6    // Not a volume
+#define    SIFS_ENOTDIR    7    // Not a directory
+#define    SIFS_ENOMEM    11    // Memory allocation failed
+     */
     
     FILE *vol = fopen(volumename, "r");
     SIFS_VOLUME_HEADER header;
@@ -23,16 +31,17 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
         return 1;
     }
 
-    fread(&header, sizeof header, 1, vol);
+    SIFS_getheader(vol, &header);
 
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
 
 
     // Read root block
-    fseek(vol, header.nblocks, SEEK_CUR);
-    fread(&curr_dir, sizeof curr_dir, 1, vol);
+    if (SIFS_getdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir)) {
+        return 1;
+    }
 
-    // trverse down structure to target node
+    // traverse down structure to target node
     for (size_t i = 0; i < path_depth; i++)
     {
         // check if curr dir contains next dir
@@ -40,8 +49,37 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
 
         for (size_t j = 0; j < curr_dir.nentries; j++)
         {
-            fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[j].blockID*header.blocksize), SEEK_SET );
-            fread(&next_dir, sizeof next_dir, 1, vol);
+            SIFS_BIT block_type;
+            if (SIFS_getblocktype(vol, curr_dir.entries[j].blockID, header, &block_type) != 0) {
+                return 1;
+            }
+            
+            switch (block_type) {
+                case SIFS_UNUSED:
+                    SIFS_errno = SIFS_ENOTVOL; // If unused block is reference vol is malformed
+                    return 1;
+                
+                case SIFS_DIR:
+                    //SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
+                    
+                    fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[j].blockID*header.blocksize), SEEK_SET );
+                    fread(&next_dir, sizeof next_dir, 1, vol);
+                    
+                    break;
+                    
+                case SIFS_FILE:
+                    SIFS_errno = SIFS_ENOTDIR;
+                    return 1;
+                    
+                case SIFS_DATABLOCK:
+                    SIFS_errno = SIFS_ENOTVOL; // If datablock is reference vol is malformed
+                    return 1;
+
+                default:
+                    SIFS_errno = SIFS_ENOTVOL; // If blocktype is invalid vol is malformed
+                    return 1;
+            }
+
 
             if (strcmp(next_dir.name, parsed_path[i]) == 0)
             {              
@@ -73,16 +111,56 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
 
     for (size_t i = 0; i < curr_dir.nentries; i++)
     {
-        // NOT CHECKING IF IS DIR ################################################
-        fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[i].blockID*header.blocksize), SEEK_SET );
-        fread(&next_dir, sizeof next_dir, 1, vol); // Reuse next_dir variable
-
-        char* name_cpy = malloc(strlen(next_dir.name));
-        if (name_cpy == NULL)
-        {
-            SIFS_errno = SIFS_ENOMEM;
+        SIFS_BIT block_type;
+        char* name_cpy;
+        SIFS_FILEBLOCK file_block;
+        
+        if (SIFS_getblocktype(vol, curr_dir.entries[i].blockID, header, &block_type) != 0) {
             return 1;
         }
+        
+        switch (block_type) {
+            case SIFS_UNUSED:
+                SIFS_errno = SIFS_ENOTVOL; // If unused block is reference vol is malformed
+                return 1;
+                
+            case SIFS_DIR:
+                //SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
+                
+                fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[i].blockID*header.blocksize), SEEK_SET );
+                fread(&next_dir, sizeof next_dir, 1, vol); // Reuse next_dir variable
+                
+                name_cpy = malloc(strlen(next_dir.name));
+                if (name_cpy == NULL)
+                {
+                    SIFS_errno = SIFS_ENOMEM;
+                    return 1;
+                }
+
+                
+                break;
+                
+            case SIFS_FILE:
+                SIFS_getfileblock(vol, curr_dir.entries[i].blockID, header, &file_block);
+                
+                name_cpy = malloc(strlen(file_block.filenames[curr_dir.entries[i].fileindex]));
+                if (name_cpy == NULL)
+                {
+                    SIFS_errno = SIFS_ENOMEM;
+                    return 1;
+                }
+                
+                break;
+                
+            case SIFS_DATABLOCK:
+                SIFS_errno = SIFS_ENOTVOL; // If datablock is reference vol is malformed
+                return 1;
+                
+            default:
+                SIFS_errno = SIFS_ENOTVOL; // If blocktype is invalid vol is malformed
+                return 1;
+        }
+        
         strcpy(name_cpy, next_dir.name);
         *(*entrynames + i) = name_cpy;
     }
@@ -92,3 +170,4 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
     SIFS_errno	= SIFS_ENOTYET;
     return 0;
 }
+

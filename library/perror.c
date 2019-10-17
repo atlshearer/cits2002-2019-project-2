@@ -35,3 +35,4 @@ void SIFS_perror(const char *prefix)
 	fprintf(stderr, "%s\n", SIFS_errlist[SIFS_errno]);
     }
 }
+

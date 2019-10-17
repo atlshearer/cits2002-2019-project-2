@@ -62,3 +62,4 @@ char** SIFS_parsepathname(const char *pathname, size_t* path_depth) {
 
     return parsed_path;
 }
+
