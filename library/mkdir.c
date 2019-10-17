@@ -6,7 +6,18 @@
 // make a new directory within an existing volume
 int SIFS_mkdir(const char *volumename, const char *pathname)
 {
-
+    /*
+#define    SIFS_EINVAL    1    // Invalid argument
+#define    SIFS_ENOVOL    3    // No such volume
+#define    SIFS_ENOENT    4    // No such file or directory entry
+#define    SIFS_EEXIST    5    // Volume, file or directory already exists
+#define    SIFS_ENOTVOL    6    // Not a volume
+#define    SIFS_ENOTDIR    7    // Not a directory
+#define    SIFS_EMAXENTRY    9    // Too many directory or file entries
+#define    SIFS_ENOSPC    10    // No space left on volume
+#define    SIFS_ENOMEM    11    // Memory allocation failed
+     */
+    
     FILE *vol = fopen(volumename, "r+");
     SIFS_VOLUME_HEADER header;
     char** parsed_path = NULL;
@@ -28,30 +39,16 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
         return 1;
     }
 
-    
+    if (SIFS_getheader(vol, &header) != 0) {
+        SIFS_errno = SIFS_ENOTVOL;
+        return 1;
+    }
 
-    fread(&header, sizeof header, 1, vol);
-
-    printf("blocksize = %4li  nblocks = %6i\n", header.blocksize, header.nblocks);
-
-    // Split pathname on /
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
 
-    for (size_t i = 0; *(parsed_path + i); i++)
-    {
-        printf("%s\n", *(parsed_path + i));
-    }
-    
-
-    printf("path_depth = %li\n", path_depth);
-
     // read root block
-    fseek(vol, header.nblocks, SEEK_CUR);
-    fread(&curr_dir, sizeof curr_dir, 1, vol);
+    SIFS_getdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir);
     curr_block_id = 0;
-
-    printf("name = %s  modtime = %li  nentires = %i\n", curr_dir.name, curr_dir.modtime, curr_dir.nentries);
-
 
     // traverse down dir structure to leaf node
     for (size_t i = 0; i < path_depth; i++)
@@ -61,6 +58,37 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
 
         for (size_t j = 0; j < curr_dir.nentries; j++)
         {
+            /*SIFS_BIT block_type;
+            if (SIFS_getblocktype(vol, curr_dir.entries[j].blockID, header, &block_type) != 0) {
+                return 1;
+            }
+            
+            switch (block_type) {
+                case SIFS_UNUSED:
+                    SIFS_errno = SIFS_ENOTVOL; // If unused block is reference vol is malformed
+                    return 1;
+                    
+                case SIFS_DIR:
+                    //SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
+                    
+                    fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[j].blockID*header.blocksize), SEEK_SET );
+                    fread(&next_dir, sizeof next_dir, 1, vol);
+                    
+                    break;
+                    
+                case SIFS_FILE:
+                    SIFS_errno = SIFS_ENOTDIR;
+                    return 1;
+                    
+                case SIFS_DATABLOCK:
+                    SIFS_errno = SIFS_ENOTVOL; // If datablock is reference vol is malformed
+                    return 1;
+                    
+                default:
+                    SIFS_errno = SIFS_ENOTVOL; // If blocktype is invalid vol is malformed
+                    return 1;
+            }*/
+            
             // NOT CHECKING BLOCK TYPE ######################################
             fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[j].blockID*header.blocksize), SEEK_SET );
             fread(&next_dir, sizeof next_dir, 1, vol);

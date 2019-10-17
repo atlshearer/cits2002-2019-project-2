@@ -60,11 +60,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                     return 1;
                 
                 case SIFS_DIR:
-                    //SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
-                    
-                    fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[j].blockID*header.blocksize), SEEK_SET );
-                    fread(&next_dir, sizeof next_dir, 1, vol);
-                    
+                    SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
                     break;
                     
                 case SIFS_FILE:
@@ -80,7 +76,6 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                     return 1;
             }
 
-
             if (strcmp(next_dir.name, parsed_path[i]) == 0)
             {              
                 found = 1;
@@ -88,7 +83,6 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
             }
         }
 
-        
         if (found) { // move into dir
             curr_dir = next_dir;
         } else {
@@ -125,10 +119,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                 return 1;
                 
             case SIFS_DIR:
-                //SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
-                
-                fseek(vol, (sizeof header) + (header.nblocks) + (curr_dir.entries[i].blockID*header.blocksize), SEEK_SET );
-                fread(&next_dir, sizeof next_dir, 1, vol); // Reuse next_dir variable
+                SIFS_getdirblock(vol, curr_dir.entries[i].blockID, header, &next_dir);
                 
                 name_cpy = malloc(strlen(next_dir.name));
                 if (name_cpy == NULL)
@@ -136,7 +127,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                     SIFS_errno = SIFS_ENOMEM;
                     return 1;
                 }
-
+                strcpy(name_cpy, next_dir.name);
                 
                 break;
                 
@@ -149,6 +140,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                     SIFS_errno = SIFS_ENOMEM;
                     return 1;
                 }
+                strcpy(name_cpy, file_block.filenames[curr_dir.entries[i].fileindex]);
                 
                 break;
                 
@@ -161,7 +153,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                 return 1;
         }
         
-        strcpy(name_cpy, next_dir.name);
+        
         *(*entrynames + i) = name_cpy;
     }
 
