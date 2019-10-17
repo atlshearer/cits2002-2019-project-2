@@ -60,8 +60,10 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
 
         for (size_t j = 0; j < curr_dir.nentries; j++)
         {
+            next_block_id = curr_dir.entries[j].blockID;
+            
             SIFS_BIT block_type;
-            if (SIFS_getblocktype(vol, curr_dir.entries[j].blockID, header, &block_type) != 0) {
+            if (SIFS_getblocktype(vol, next_block_id, header, &block_type) != 0) {
                 return 1;
             }
             
@@ -71,8 +73,7 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
                     return 1;
                     
                 case SIFS_DIR:
-                    SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
-                    next_block_id = curr_dir.entries[j].blockID;
+                    SIFS_getdirblock(vol, next_block_id, header, &next_dir);
                     break;
                     
                 case SIFS_FILE:
