@@ -54,21 +54,40 @@ typedef struct
     char filenames[SIFS_MAX_ENTRIES][SIFS_MAX_NAME_LENGTH];
 } SIFS_FILEBLOCK;
 
-// PRIVATE HELPER FUNCTIONS
+// PRIVATE HELPER FUNCTIONS ----------------------------------------
 
 // parses a pathname string into an array of dir names
-extern  char** SIFS_parsepathname(const char *pathname, size_t* path_depth);
+extern  int SIFS_parsepathname(const char *pathname, char*** parsed_path, size_t* path_depth);
+
+// frees all memory allocated by SIFS_parsepathname
+extern  void SIFS_freeparsedpath(char** parsed_path);
 
 
-// traversal helpers
+// traversal helpers -----------------
 
-// gets file block and parent block by path name
-extern int SIFS_getfileblockid(FILE* volume, char **pathname, size_t path_depth, SIFS_VOLUME_HEADER vol_header, SIFS_BLOCKID* parent, SIFS_BLOCKID* target);
+// checks if the opened file is a valid volume
+//      - Header has valid values
+//      - File is of correct size
+//      - Bitmap contains only valid bits
+//      - File and Directory blocks contain valid values
+//      - File and Directory blocks 'point' to correct block type
+//      - DOES NOT CHECK for structure issues, e.g. directory loops
+extern  int SIFS_checkvolumeintegrity(FILE* volume, SIFS_VOLUME_HEADER vol_header);
+
+// gets file block and parent id block by path name
+extern  int SIFS_getfileblockid(FILE* volume, char **parsed_path, size_t path_depth, SIFS_VOLUME_HEADER vol_header, SIFS_BLOCKID* parent, SIFS_BLOCKID* target);
+
+// gets dir block id by path name
+extern  int SIFS_getdirblockid(FILE* volume, char **parsed_path, size_t path_depth, SIFS_VOLUME_HEADER vol_header, SIFS_BLOCKID* target);
+
+// sets SIFS_errno to SIFS_EEXIST and retunrs 1 if exists, else returns 0
+extern  int SIFS_checkexists(FILE* volume, SIFS_DIRBLOCK parent_id, char* target_name, SIFS_VOLUME_HEADER vol_header);
 
 
-// reader helpers
+// reader helpers ---------------------
 
 // get header and store in vol_header
+// also checks if volume is of correct size, with valid bitmap
 extern  int SIFS_readheader(FILE* volume, SIFS_VOLUME_HEADER* vol_header);
 
 // get dir  block located at block_id and store in  dir_block
@@ -84,7 +103,7 @@ extern  int SIFS_readdata(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADE
 extern  int SIFS_readblocktype(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_BIT* block_type);
 
 
-// writter helpers
+// writter helpers ---------------------
 
 // write dir_block to block at location block_id
 extern  int SIFS_writedirblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_DIRBLOCK* dir_block);

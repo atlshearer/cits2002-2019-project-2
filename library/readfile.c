@@ -35,9 +35,25 @@ int SIFS_readfile(const char *volumename, const char *pathname,
         return 1;
     }
     
-    SIFS_readheader(vol, &header);
+    if (SIFS_readheader(vol, &header) != 0)
+    {
+        return 1;
+    }
+
+    if (SIFS_checkvolumeintegrity(vol, header) != 0) 
+    {
+        return 1;
+    }
     
-    parsed_path = SIFS_parsepathname(pathname, &path_depth);
+    if (SIFS_parsepathname(pathname, &parsed_path, &path_depth) != 0) 
+    {
+        return 1;
+    }
+
+    if (path_depth < 1) {
+        SIFS_errno = SIFS_EINVAL;
+        return 1;
+    }
     
     if (SIFS_getfileblockid(vol, parsed_path, path_depth, header, &parent_id, &target_id) != 0) {
         return 1;

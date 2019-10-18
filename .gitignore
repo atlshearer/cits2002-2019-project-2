@@ -4,3 +4,5 @@ sifs_mkdir
 sifs_mkvolume
 sifs_putrandom
 sifs_rmdir
+.vscode/*
+*.vol

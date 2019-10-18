@@ -1,5 +1,10 @@
 {
     "files.exclude": {
         "**/*.o": true
-    }
+    },
+    "files.associations": {
+        "sifs-internal.h": "c"
+    },
+    "editor.wordWrap": "on",
+    "editor.wrappingIndent": "deepIndent"
 }

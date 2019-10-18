@@ -4,10 +4,11 @@ LIBRARY	= libsifs.a
 
 OBJECTS	= mkvolume.o mkdir.o rmdir.o dirinfo.o\
 		writefile.o readfile.o rmfile.o fileinfo.o\
-		perror.o md5.o parsepathname.o util.o
+		perror.o md5.o\
+		util.o util_traversal.o util_read.o util_write.o
 
 CC      = cc
-CFLAGS  = -std=c99 -Wall -pedantic
+CFLAGS  = -std=c99 -Wall -Werror -pedantic
 
 $(LIBRARY):	$(OBJECTS)
 	ar rc $(LIBRARY) $(OBJECTS)

@@ -22,10 +22,8 @@ int SIFS_writefile(const char *volumename, const char *pathname,
     char** parsed_path = NULL;
     size_t path_depth  = 0;
 
-    SIFS_DIRBLOCK curr_dir;
-    SIFS_DIRBLOCK next_dir;
-    SIFS_BLOCKID curr_block_id;
-    SIFS_BLOCKID next_block_id;
+    SIFS_DIRBLOCK parent_dir;
+    SIFS_BLOCKID parent_dir_id;
     SIFS_BIT out_buffer = SIFS_UNUSED;
 
     SIFS_FILEBLOCK new_file_block;
@@ -36,6 +34,8 @@ int SIFS_writefile(const char *volumename, const char *pathname,
 
     int filename_index = 0;
     int file_exists = 0;
+
+    SIFS_BIT block_type;
     
     unsigned char data_md5[MD5_BYTELEN];
     char* old_md5 = malloc(sizeof(char) * (MD5_STRLEN + 1));
@@ -52,91 +52,57 @@ int SIFS_writefile(const char *volumename, const char *pathname,
         return 1;
     }
 
-    SIFS_readheader(vol, &header);
+    if (SIFS_readheader(vol, &header) != 0)
+    {
+        return 1;
+    }
 
-    parsed_path = SIFS_parsepathname(pathname, &path_depth);
+    if (SIFS_checkvolumeintegrity(vol, header) != 0) 
+    {
+        return 1;
+    }
+
+    if (SIFS_parsepathname(pathname, &parsed_path, &path_depth) != 0) 
+    {
+        return 1;
+    }
 
     MD5_buffer(data, nbytes, data_md5);
     memcpy(new_md5, MD5_format(data_md5), MD5_STRLEN);
     new_md5[MD5_STRLEN] = 0;
 
-    // Read root block
-    if(SIFS_readdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir) != 0) {
+    // Retreive parent_dir
+    if (SIFS_getdirblockid(vol, parsed_path, path_depth - 1, header, &parent_dir_id) != 0)
+    {    
         return 1;
     }
-    curr_block_id = 0;
 
-    // traverse down structure to target node
-    for (size_t i = 0; i < path_depth; i++)
+    if (SIFS_readdirblock(vol, parent_dir_id, header, &parent_dir) != 0)
     {
-        // check if curr dir contains next dir
-        int found = 0;
-
-        for (size_t j = 0; j < curr_dir.nentries; j++)
-        {
-            SIFS_BIT block_type;
-            next_block_id = curr_dir.entries[j].blockID;
-            ////// ISSUE IN OTHER FILES #####################
-            SIFS_readblocktype(vol, next_block_id, header, &block_type);
-
-            if (i != path_depth - 1 && block_type != SIFS_DIR)
-            {
-                SIFS_errno = SIFS_ENOTDIR;
-                return 1;
-            } else if (i == path_depth - 1 && block_type == SIFS_FILE) {
-                SIFS_readfileblock(vol, curr_dir.entries[j].blockID, header, &new_file_block);
-
-                if (strcmp(new_file_block.filenames[curr_dir.entries[j].fileindex], parsed_path[i]) == 0) {
-                    SIFS_errno = SIFS_EEXIST;
-                    return 1;
-                }
-            } else if (i == path_depth - 1 && block_type == SIFS_DIR) {
-                if (SIFS_readdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir) != 0) {
-                    return 1;
-                }
-
-                if (strcmp(next_dir.name, parsed_path[i]) == 0) {
-                    SIFS_errno = SIFS_EEXIST;
-                    return 1;
-                }
-            } else {
-                if(SIFS_readdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir) != 0) {
-                    return 1;
-                }
-
-                if (strcmp(next_dir.name, parsed_path[i]) == 0)
-                {              
-                    found = 1;
-                    break;
-                }
-            }
-        }
-
-        if (found) { // move into dir
-            curr_dir = next_dir;
-            curr_block_id = next_block_id;
-        } else if (i == path_depth - 1) {
-
-        } else {
-            SIFS_errno = SIFS_ENOENT;
-            return 1;
-        }
+        return 1;
     }
 
-    // curr_dir is dir to contain new data
+    // Check if file or dir exists
+    if (SIFS_checkexists(vol, parent_dir, parsed_path[path_depth - 1], header) != 0)
+    {
+        return 1;
+    }   
 
-    if (curr_dir.nentries == SIFS_MAX_ENTRIES)
+    //
+    if (parent_dir.nentries == SIFS_MAX_ENTRIES)
     {
         SIFS_errno = SIFS_EMAXENTRY;
         return 1;
     }
 
-
     // check if copy of file already saved
     for (size_t i = 0; i < header.nblocks; i++)
     {
         SIFS_BIT block_type;
-        SIFS_readblocktype(vol, i, header, &block_type);
+        if (SIFS_readblocktype(vol, i, header, &block_type) != 0)
+        {
+            return 1;
+        }
 
         if (block_type == SIFS_FILE)
         {
@@ -149,7 +115,6 @@ int SIFS_writefile(const char *volumename, const char *pathname,
             
             if (strcmp(old_md5, new_md5) == 0)
             {
-                // Same file
                 if (new_file_block.nfiles >= SIFS_MAX_ENTRIES)
                 {
                     SIFS_errno = SIFS_EMAXENTRY;
@@ -163,7 +128,10 @@ int SIFS_writefile(const char *volumename, const char *pathname,
                 filename_index = new_file_block.nfiles;
                 new_file_block.nfiles++;
 
-                SIFS_writefileblock(vol, i, header, &new_file_block);
+                if (SIFS_writefileblock(vol, i, header, &new_file_block) != 0)
+                {
+                    return 1;
+                }
 
                 break;
             }
@@ -172,12 +140,13 @@ int SIFS_writefile(const char *volumename, const char *pathname,
 
     if (!file_exists)
     {  
-    
         // find space for obj
         for (size_t i = 0; i < header.nblocks; i++)
         {
-            SIFS_BIT block_type;
-            SIFS_readblocktype(vol, i, header, &block_type);
+            if (SIFS_readblocktype(vol, i, header, &block_type) != 0)
+            {
+                return 1;
+            }
             
             if (block_type == SIFS_UNUSED)
             {
@@ -199,13 +168,15 @@ int SIFS_writefile(const char *volumename, const char *pathname,
         
         for (size_t i = 0; i < header.nblocks; i++)
         {
-            if (new_data_id <= i && i < new_data_id + space_found) {
+            if (new_data_id <= i && i < new_data_id + space_found && nbytes > 0) {
                 // overlap with space found for data
                 continue;
             }
             
-            SIFS_BIT block_type;
-            SIFS_readblocktype(vol, i, header, &block_type);
+            if (SIFS_readblocktype(vol, i, header, &block_type) != 0)
+            {
+                return 1;
+            }
 
             if (block_type == SIFS_UNUSED)
             {
@@ -231,26 +202,45 @@ int SIFS_writefile(const char *volumename, const char *pathname,
         strcpy(new_file_block.filenames[0], parsed_path[path_depth - 1]);
         
         // write file block
-        SIFS_writefileblock(vol, new_block_id, header, &new_file_block);
+        if (SIFS_writefileblock(vol, new_block_id, header, &new_file_block) != 0)
+        {
+            return 1;
+        }
 
         // write data
-        SIFS_writedata(vol, new_data_id, header, data, nbytes);
+        if (SIFS_writedata(vol, new_data_id, header, data, nbytes) != 0)
+        {
+            return 1;
+        }
 
         // update bitmap
         out_buffer = SIFS_FILE;
-        SIFS_writeblocktype(vol, new_block_id, header, &out_buffer, 1);
+        if (SIFS_writeblocktype(vol, new_block_id, header, &out_buffer, 1) != 0)
+        {
+            return 1;
+        }
 
         out_buffer = SIFS_DATABLOCK;
-        SIFS_writeblocktype(vol, new_data_id, header, &out_buffer, space_found);
+        if (nbytes > 0)
+        {
+            if (SIFS_writeblocktype(vol, new_data_id, header, &out_buffer, space_found) != 0)
+            {
+                return 1;
+            }
+        }
     }
     
     // update parent dir
-    curr_dir.entries[curr_dir.nentries].blockID = new_block_id;
-    curr_dir.entries[curr_dir.nentries].fileindex = filename_index;
-    curr_dir.nentries++;
+    parent_dir.entries[parent_dir.nentries].blockID = new_block_id;
+    parent_dir.entries[parent_dir.nentries].fileindex = filename_index;
+    parent_dir.nentries++;
+    parent_dir.modtime = time(NULL);
 
     // write parent dir
-    SIFS_writedirblock(vol, curr_block_id, header, &curr_dir);
+    if (SIFS_writedirblock(vol, parent_dir_id, header, &parent_dir) != 0)
+    {
+        return 1;
+    }
 
 
     // cleanup

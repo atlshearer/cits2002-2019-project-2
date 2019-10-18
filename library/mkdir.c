@@ -23,15 +23,13 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     char** parsed_path = NULL;
     size_t path_depth  = 0;
 
-    SIFS_DIRBLOCK curr_dir;
-    SIFS_DIRBLOCK next_dir;
+    SIFS_DIRBLOCK parent_dir;
     SIFS_DIRBLOCK new_dir;
-    SIFS_BLOCKID curr_block_id;
-    SIFS_BLOCKID next_block_id;
+    SIFS_BLOCKID parent_dir_id;
     SIFS_BLOCKID new_block_id;
     int block_found = 0;
     
-    SIFS_BIT bitmap_buffer;
+    SIFS_BIT block_type;
     
 
     //  VOLUME CREATION FAILED
@@ -46,78 +44,40 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
         return 1;
     }
 
-    parsed_path = SIFS_parsepathname(pathname, &path_depth);
-
-    // read root block
-    SIFS_readdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir);
-    curr_block_id = 0;
-
-    // traverse down dir structure to leaf node
-    for (size_t i = 0; i < path_depth; i++)
+    if (SIFS_checkvolumeintegrity(vol, header) != 0) 
     {
-        // check if curr dir contains next dir
-        int found = 0;
-
-        for (size_t j = 0; j < curr_dir.nentries; j++)
-        {
-            next_block_id = curr_dir.entries[j].blockID;
-            
-            SIFS_BIT block_type;
-            if (SIFS_readblocktype(vol, next_block_id, header, &block_type) != 0) {
-                return 1;
-            }
-            
-            switch (block_type) {
-                case SIFS_UNUSED:
-                    SIFS_errno = SIFS_ENOTVOL; // If unused block is reference vol is malformed
-                    return 1;
-                    
-                case SIFS_DIR:
-                    SIFS_readdirblock(vol, next_block_id, header, &next_dir);
-                    break;
-                    
-                case SIFS_FILE:
-                    SIFS_errno = SIFS_ENOTDIR;
-                    return 1;
-                    
-                case SIFS_DATABLOCK:
-                    SIFS_errno = SIFS_ENOTVOL; // If datablock is reference vol is malformed
-                    return 1;
-                    
-                default:
-                    SIFS_errno = SIFS_ENOTVOL; // If blocktype is invalid vol is malformed
-                    return 1;
-            }
-            
-
-            if (strcmp(next_dir.name, parsed_path[i]) == 0)
-            {
-                if (i == path_depth - 1)
-                {
-                    // have reached target parent, however new dir already exists
-                    SIFS_errno = SIFS_EEXIST;
-                    return 1;
-                }
-                
-                found = 1;
-                break;
-            }
-        }
-
-        
-        if (found) { // move into dir
-            curr_dir = next_dir;
-            curr_block_id = next_block_id;
-        } else if (i == path_depth - 1) {
-            // nothing found, in parent dir, target dir not existant
-        } else {
-            SIFS_errno = SIFS_ENOENT;
-            return 1;
-        }
+        return 1;
     }
 
-    // will be in dir that new dir should be made in
-    if (curr_dir.nentries == SIFS_MAX_ENTRIES)
+    if (SIFS_parsepathname(pathname, &parsed_path, &path_depth) != 0) 
+    {
+        return 1;
+    }
+
+    if (path_depth < 1) {
+        SIFS_errno = SIFS_EINVAL;
+        return 1;
+    }
+
+    // Retrieve parent block
+    if (SIFS_getdirblockid(vol, parsed_path, path_depth - 1, header, &parent_dir_id) != 0)
+    {
+        return 1;
+    }
+
+    if (SIFS_readdirblock(vol, parent_dir_id, header, &parent_dir) != 0)
+    {
+        return 1;
+    }
+    
+    // Check if file or dir already exists
+    if (SIFS_checkexists(vol, parent_dir, parsed_path[path_depth - 1], header) != 0)
+    {
+        return 1;
+    }   
+
+    //
+    if (parent_dir.nentries == SIFS_MAX_ENTRIES)
     {
         SIFS_errno = SIFS_EMAXENTRY;
         return 1;
@@ -132,8 +92,10 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     // find space for obj
     for (size_t i = 0; i < header.nblocks; i++)
     {
-        SIFS_BIT block_type;
-        SIFS_readblocktype(vol, i, header, &block_type);
+        if (SIFS_readblocktype(vol, i, header, &block_type) != 0)
+        {
+            return 1;
+        }
 
         if (block_type == SIFS_UNUSED)
         {
@@ -150,29 +112,34 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     }
 
     // write to vol
-    SIFS_writedirblock(vol, new_block_id, header, &new_dir);
+    if (SIFS_writedirblock(vol, new_block_id, header, &new_dir) != 0)
+    {
+        return 1;
+    }
 
     // update parent dir
-    curr_dir.entries[curr_dir.nentries].blockID = new_block_id;
-    curr_dir.nentries++;
+    parent_dir.entries[parent_dir.nentries].blockID = new_block_id;
+    parent_dir.modtime = time(NULL);
+    parent_dir.nentries++;
     
-    SIFS_writedirblock(vol, curr_block_id, header, &curr_dir);
+    if (SIFS_writedirblock(vol, parent_dir_id, header, &parent_dir) != 0)
+    {
+        return 1;
+    }
     
     // update bitmap
-    bitmap_buffer = SIFS_DIR;
-    SIFS_writeblocktype(vol, new_block_id, header, &bitmap_buffer, 1);
-
+    block_type = SIFS_DIR;
+    if (SIFS_writeblocktype(vol, new_block_id, header, &block_type, 1) != 0)
+    {
+        return 1;
+    }
     
-    // cleanup
 
+    // cleanup
     fclose(vol);
 
-    // Free parsed_path
-    for (size_t i = 0; *(parsed_path + i); i++)
-    {
-        free(*(parsed_path + i));
-    }
-    free(parsed_path);
+    SIFS_freeparsedpath(parsed_path);
+    parsed_path = NULL;
     
     return 0;
 }

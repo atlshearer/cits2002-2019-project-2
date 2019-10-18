@@ -37,9 +37,25 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
         return 1;
     }
 
-    SIFS_readheader(vol, &header);
+    if (SIFS_readheader(vol, &header) != 0)
+    {
+        return 1;
+    }
 
-    parsed_path = SIFS_parsepathname(pathname, &path_depth);
+    if (SIFS_checkvolumeintegrity(vol, header) != 0) 
+    {
+        return 1;
+    }
+
+    if (SIFS_parsepathname(pathname, &parsed_path, &path_depth) != 0) 
+    {
+        return 1;
+    }
+
+    if (path_depth < 1) {
+        SIFS_errno = SIFS_EINVAL;
+        return 1;
+    }
 
     if (SIFS_getfileblockid(vol, parsed_path, path_depth, header, &parent_id, &target_id) != 0)
     {
@@ -76,13 +92,17 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
                 // Update fileindex in all dir that 'contain' target
                 for (size_t j = 0; j < header.blocksize; j++)
                 {
-                    if (SIFS_readblocktype(vol, j, header, &bit_buffer) != 0) {
+                    if (SIFS_readblocktype(vol, j, header, &bit_buffer) != 0)
+                    {
                         return 1;
                     }
 
                     if (bit_buffer == SIFS_DIR)
                     {
-                        SIFS_readdirblock(vol, j, header, &dir_buffer);
+                        if (SIFS_readdirblock(vol, j, header, &dir_buffer) != 0)
+                        {
+                            return 1;
+                        }
 
                         for (size_t entry_idx = 0; entry_idx < dir_buffer.nentries; entry_idx++)
                         {
@@ -93,23 +113,39 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
                             }
                         }
 
-                        SIFS_writedirblock(vol, j, header, &dir_buffer);
+                        if (SIFS_writedirblock(vol, j, header, &dir_buffer) != 0)
+                        {
+                            return 1;
+                        }
                     }
                 }
                 
                 // Write back to file
-                SIFS_writefileblock(vol, target_id, header, &target);
+                if (SIFS_writefileblock(vol, target_id, header, &target) != 0)
+                {
+                    return 1;
+                }
             }
             else
             {
                 // Remove file from archive
                 bit_buffer = SIFS_UNUSED;
-                SIFS_writeblocktype(vol, target_id, header, &bit_buffer, 1);
-                SIFS_writeblocktype(vol, target.firstblockID, header, &bit_buffer, (target.length + header.blocksize - 1) / header.blocksize);
+                if (SIFS_writeblocktype(vol, target_id, header, &bit_buffer, 1) != 0)
+                {
+                    return 1;
+                }
+
+                if (SIFS_writeblocktype(vol, target.firstblockID, header, &bit_buffer, (target.length + header.blocksize - 1) / header.blocksize) != 0)
+                {
+                    return 1;
+                }
             }
 
             // Is possible that fileindex will have been altered, need to refresh parent
-            SIFS_readdirblock(vol, parent_id, header, &parent);
+            if (SIFS_readdirblock(vol, parent_id, header, &parent) != 0)
+            {
+                return 1;
+            }
 
             // Remove reference in parent
             for (size_t j = i; j < parent.nentries - 1; j++)
@@ -118,6 +154,7 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
             }
 
             parent.nentries--;
+            parent.modtime = time(NULL);
 
             // Write back to file
             if (SIFS_writedirblock(vol, parent_id, header, &parent) != 0)
