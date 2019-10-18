@@ -41,7 +41,7 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
         return 1;
     }
 
-    if (SIFS_getheader(vol, &header) != 0) {
+    if (SIFS_readheader(vol, &header) != 0) {
         SIFS_errno = SIFS_ENOTVOL;
         return 1;
     }
@@ -49,7 +49,7 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
 
     // read root block
-    SIFS_getdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir);
+    SIFS_readdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir);
     curr_block_id = 0;
 
     // traverse down dir structure to leaf node
@@ -63,7 +63,7 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
             next_block_id = curr_dir.entries[j].blockID;
             
             SIFS_BIT block_type;
-            if (SIFS_getblocktype(vol, next_block_id, header, &block_type) != 0) {
+            if (SIFS_readblocktype(vol, next_block_id, header, &block_type) != 0) {
                 return 1;
             }
             
@@ -73,7 +73,7 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
                     return 1;
                     
                 case SIFS_DIR:
-                    SIFS_getdirblock(vol, next_block_id, header, &next_dir);
+                    SIFS_readdirblock(vol, next_block_id, header, &next_dir);
                     break;
                     
                 case SIFS_FILE:
@@ -133,7 +133,7 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     for (size_t i = 0; i < header.nblocks; i++)
     {
         SIFS_BIT block_type;
-        SIFS_getblocktype(vol, i, header, &block_type);
+        SIFS_readblocktype(vol, i, header, &block_type);
 
         if (block_type == SIFS_UNUSED)
         {

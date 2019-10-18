@@ -34,7 +34,7 @@ int SIFS_getfileblockid(FILE* volume, char **parsed_path, size_t path_depth, SIF
     SIFS_BLOCKID file_block_id;
     
     // Read root block
-    if (SIFS_getdirblock(volume, SIFS_ROOTDIR_BLOCKID, vol_header, &curr_dir)) {
+    if (SIFS_readdirblock(volume, SIFS_ROOTDIR_BLOCKID, vol_header, &curr_dir)) {
         return 1;
     }
     
@@ -49,7 +49,7 @@ int SIFS_getfileblockid(FILE* volume, char **parsed_path, size_t path_depth, SIF
             next_dir_id = curr_dir.entries[j].blockID;
             
             SIFS_BIT block_type;
-            if (SIFS_getblocktype(volume, next_dir_id, vol_header, &block_type) != 0) {
+            if (SIFS_readblocktype(volume, next_dir_id, vol_header, &block_type) != 0) {
                 return 1;
             }
             
@@ -59,7 +59,7 @@ int SIFS_getfileblockid(FILE* volume, char **parsed_path, size_t path_depth, SIF
                     return 1;
                     
                 case SIFS_DIR:
-                    SIFS_getdirblock(volume, next_dir_id, vol_header, &next_dir);
+                    SIFS_readdirblock(volume, next_dir_id, vol_header, &next_dir);
                     
                     if (strcmp(next_dir.name, parsed_path[i]) == 0)
                     {
@@ -78,7 +78,7 @@ int SIFS_getfileblockid(FILE* volume, char **parsed_path, size_t path_depth, SIF
                         return 1;
                     }
                     
-                    SIFS_getfileblock(volume, next_dir_id, vol_header, &file_block);
+                    SIFS_readfileblock(volume, next_dir_id, vol_header, &file_block);
                     
                     if (strcmp(file_block.filenames[curr_dir.entries[j].fileindex], parsed_path[i]) == 0) {
                         // Target found
@@ -122,7 +122,7 @@ int SIFS_getfileblockid(FILE* volume, char **parsed_path, size_t path_depth, SIF
 
 // reader helpers
 
-int SIFS_getheader(FILE* volume, SIFS_VOLUME_HEADER* vol_header)
+int SIFS_readheader(FILE* volume, SIFS_VOLUME_HEADER* vol_header)
 {
     if (fseek(volume, 0L, SEEK_SET) != 0) {
         SIFS_errno = SIFS_EINVAL;
@@ -134,7 +134,7 @@ int SIFS_getheader(FILE* volume, SIFS_VOLUME_HEADER* vol_header)
     return 0;
 }
 
-int SIFS_getdirblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_DIRBLOCK* dir_block)
+int SIFS_readdirblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_DIRBLOCK* dir_block)
 {
     
     if (fseek(volume, sizeof(SIFS_VOLUME_HEADER) + vol_header.nblocks + block_id * vol_header.blocksize, SEEK_SET) != 0) {
@@ -147,7 +147,7 @@ int SIFS_getdirblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol
     return 0;
 }
 
-int SIFS_getfileblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_FILEBLOCK* file_block)
+int SIFS_readfileblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_FILEBLOCK* file_block)
 {
     if (fseek(volume, sizeof(SIFS_VOLUME_HEADER) + vol_header.nblocks + block_id * vol_header.blocksize, SEEK_SET) != 0) {
         SIFS_errno = SIFS_EINVAL;
@@ -159,7 +159,7 @@ int SIFS_getfileblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vo
     return 0;
 }
 
-int SIFS_getdata(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, void* data, size_t nbytes)
+int SIFS_readdata(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, void* data, size_t nbytes)
 {
     if (fseek(volume, sizeof(SIFS_VOLUME_HEADER) + vol_header.nblocks + block_id * vol_header.blocksize, SEEK_SET)) {
         SIFS_errno = SIFS_EINVAL;
@@ -171,7 +171,7 @@ int SIFS_getdata(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_hea
     return 0;
 }
 
-int SIFS_getblocktype(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_BIT* block_type)
+int SIFS_readblocktype(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_BIT* block_type)
 {
     if (fseek(volume, sizeof(SIFS_VOLUME_HEADER) + block_id, SEEK_SET)) {
         SIFS_errno = SIFS_EINVAL;

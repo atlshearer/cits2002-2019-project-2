@@ -35,7 +35,7 @@ int SIFS_readfile(const char *volumename, const char *pathname,
         return 1;
     }
     
-    SIFS_getheader(vol, &header);
+    SIFS_readheader(vol, &header);
     
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
     
@@ -43,11 +43,11 @@ int SIFS_readfile(const char *volumename, const char *pathname,
         return 1;
     }
     
-    if (SIFS_getdirblock(vol, parent_id, header, &parent) != 0) {
+    if (SIFS_readdirblock(vol, parent_id, header, &parent) != 0) {
         return 1;
     }
     
-    if (SIFS_getfileblock(vol, target_id, header, &target) != 0) {
+    if (SIFS_readfileblock(vol, target_id, header, &target) != 0) {
         return 1;
     }
     
@@ -59,7 +59,7 @@ int SIFS_readfile(const char *volumename, const char *pathname,
         return 1;
     }
     
-    if (SIFS_getdata(vol, target.firstblockID, header, *data, target.length) != 0) {
+    if (SIFS_readdata(vol, target.firstblockID, header, *data, target.length) != 0) {
         return 1;
     }
     

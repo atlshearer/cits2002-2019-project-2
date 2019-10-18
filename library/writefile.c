@@ -52,7 +52,7 @@ int SIFS_writefile(const char *volumename, const char *pathname,
         return 1;
     }
 
-    SIFS_getheader(vol, &header);
+    SIFS_readheader(vol, &header);
 
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
 
@@ -61,7 +61,7 @@ int SIFS_writefile(const char *volumename, const char *pathname,
     new_md5[MD5_STRLEN] = 0;
 
     // Read root block
-    if(SIFS_getdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir) != 0) {
+    if(SIFS_readdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir) != 0) {
         return 1;
     }
     curr_block_id = 0;
@@ -77,21 +77,21 @@ int SIFS_writefile(const char *volumename, const char *pathname,
             SIFS_BIT block_type;
             next_block_id = curr_dir.entries[j].blockID;
             ////// ISSUE IN OTHER FILES #####################
-            SIFS_getblocktype(vol, next_block_id, header, &block_type);
+            SIFS_readblocktype(vol, next_block_id, header, &block_type);
 
             if (i != path_depth - 1 && block_type != SIFS_DIR)
             {
                 SIFS_errno = SIFS_ENOTDIR;
                 return 1;
             } else if (i == path_depth - 1 && block_type == SIFS_FILE) {
-                SIFS_getfileblock(vol, curr_dir.entries[j].blockID, header, &new_file_block);
+                SIFS_readfileblock(vol, curr_dir.entries[j].blockID, header, &new_file_block);
 
                 if (strcmp(new_file_block.filenames[curr_dir.entries[j].fileindex], parsed_path[i]) == 0) {
                     SIFS_errno = SIFS_EEXIST;
                     return 1;
                 }
             } else if (i == path_depth - 1 && block_type == SIFS_DIR) {
-                if (SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir) != 0) {
+                if (SIFS_readdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir) != 0) {
                     return 1;
                 }
 
@@ -100,7 +100,7 @@ int SIFS_writefile(const char *volumename, const char *pathname,
                     return 1;
                 }
             } else {
-                if(SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir) != 0) {
+                if(SIFS_readdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir) != 0) {
                     return 1;
                 }
 
@@ -136,11 +136,11 @@ int SIFS_writefile(const char *volumename, const char *pathname,
     for (size_t i = 0; i < header.nblocks; i++)
     {
         SIFS_BIT block_type;
-        SIFS_getblocktype(vol, i, header, &block_type);
+        SIFS_readblocktype(vol, i, header, &block_type);
 
         if (block_type == SIFS_FILE)
         {
-            if (SIFS_getfileblock(vol, i, header, &new_file_block) != 0) {
+            if (SIFS_readfileblock(vol, i, header, &new_file_block) != 0) {
                 return 1;
             };
             
@@ -177,7 +177,7 @@ int SIFS_writefile(const char *volumename, const char *pathname,
         for (size_t i = 0; i < header.nblocks; i++)
         {
             SIFS_BIT block_type;
-            SIFS_getblocktype(vol, i, header, &block_type);
+            SIFS_readblocktype(vol, i, header, &block_type);
             
             if (block_type == SIFS_UNUSED)
             {
@@ -205,7 +205,7 @@ int SIFS_writefile(const char *volumename, const char *pathname,
             }
             
             SIFS_BIT block_type;
-            SIFS_getblocktype(vol, i, header, &block_type);
+            SIFS_readblocktype(vol, i, header, &block_type);
 
             if (block_type == SIFS_UNUSED)
             {

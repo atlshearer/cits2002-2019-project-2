@@ -31,7 +31,7 @@ int SIFS_rmdir(const char *volumename, const char *pathname)
         return 1;
     }
 
-    SIFS_getheader(vol, &header);
+    SIFS_readheader(vol, &header);
 
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
     
@@ -41,7 +41,7 @@ int SIFS_rmdir(const char *volumename, const char *pathname)
     }
 
     // Read root block
-    SIFS_getdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir);
+    SIFS_readdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir);
     curr_block_id = 0;
 
     // trverse down structure to target node
@@ -55,7 +55,7 @@ int SIFS_rmdir(const char *volumename, const char *pathname)
             next_block_id = curr_dir.entries[j].blockID;
             
             SIFS_BIT block_type;
-            if (SIFS_getblocktype(vol, next_block_id, header, &block_type) != 0) {
+            if (SIFS_readblocktype(vol, next_block_id, header, &block_type) != 0) {
                 return 1;
             }
             
@@ -65,7 +65,7 @@ int SIFS_rmdir(const char *volumename, const char *pathname)
                     return 1;
                     
                 case SIFS_DIR:
-                    SIFS_getdirblock(vol, next_block_id, header, &next_dir);
+                    SIFS_readdirblock(vol, next_block_id, header, &next_dir);
                     break;
                     
                 case SIFS_FILE:

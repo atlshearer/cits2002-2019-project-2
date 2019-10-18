@@ -10,7 +10,7 @@ APPLICATIONS	= sifs_mkvolume sifs_dirinfo sifs_mkdir sifs_rmdir\
 # ----------------------------------------------------------------
 
 CC      = cc
-CFLAGS  = -std=c99 -Wall -pedantic
+CFLAGS  = -std=c99 -Wall -Werror -pedantic
 LIBS	= -L. -lsifs -lm
 
 

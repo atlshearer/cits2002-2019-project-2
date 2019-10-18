@@ -31,12 +31,12 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
         return 1;
     }
 
-    SIFS_getheader(vol, &header);
+    SIFS_readheader(vol, &header);
 
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
 
     // Read root block
-    if (SIFS_getdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir)) {
+    if (SIFS_readdirblock(vol, SIFS_ROOTDIR_BLOCKID, header, &curr_dir)) {
         return 1;
     }
 
@@ -49,7 +49,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
         for (size_t j = 0; j < curr_dir.nentries; j++)
         {
             SIFS_BIT block_type;
-            if (SIFS_getblocktype(vol, curr_dir.entries[j].blockID, header, &block_type) != 0) {
+            if (SIFS_readblocktype(vol, curr_dir.entries[j].blockID, header, &block_type) != 0) {
                 return 1;
             }
             
@@ -59,7 +59,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                     return 1;
                 
                 case SIFS_DIR:
-                    SIFS_getdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
+                    SIFS_readdirblock(vol, curr_dir.entries[j].blockID, header, &next_dir);
                     break;
                     
                 case SIFS_FILE:
@@ -108,7 +108,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
         char* name_cpy;
         SIFS_FILEBLOCK file_block;
         
-        if (SIFS_getblocktype(vol, curr_dir.entries[i].blockID, header, &block_type) != 0) {
+        if (SIFS_readblocktype(vol, curr_dir.entries[i].blockID, header, &block_type) != 0) {
             return 1;
         }
         
@@ -118,7 +118,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                 return 1;
                 
             case SIFS_DIR:
-                SIFS_getdirblock(vol, curr_dir.entries[i].blockID, header, &next_dir);
+                SIFS_readdirblock(vol, curr_dir.entries[i].blockID, header, &next_dir);
                 
                 name_cpy = malloc(strlen(next_dir.name));
                 if (name_cpy == NULL)
@@ -131,7 +131,7 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                 break;
                 
             case SIFS_FILE:
-                SIFS_getfileblock(vol, curr_dir.entries[i].blockID, header, &file_block);
+                SIFS_readfileblock(vol, curr_dir.entries[i].blockID, header, &file_block);
                 
                 name_cpy = malloc(strlen(file_block.filenames[curr_dir.entries[i].fileindex]));
                 if (name_cpy == NULL)

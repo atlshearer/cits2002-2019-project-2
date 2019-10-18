@@ -69,19 +69,19 @@ extern int SIFS_getfileblockid(FILE* volume, char **pathname, size_t path_depth,
 // reader helpers
 
 // get header and store in vol_header
-extern  int SIFS_getheader(FILE* volume, SIFS_VOLUME_HEADER* vol_header);
+extern  int SIFS_readheader(FILE* volume, SIFS_VOLUME_HEADER* vol_header);
 
 // get dir  block located at block_id and store in  dir_block
-extern  int SIFS_getdirblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_DIRBLOCK* dir_block);
+extern  int SIFS_readdirblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_DIRBLOCK* dir_block);
                               
 // get file block located at block_id and store in file_block
-extern  int SIFS_getfileblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_FILEBLOCK* file_block);
+extern  int SIFS_readfileblock(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_FILEBLOCK* file_block);
 
 // get data starting at block located block_id
-extern  int SIFS_getdata(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, void* data, size_t nbytes);
+extern  int SIFS_readdata(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, void* data, size_t nbytes);
 
 // get the type of block located at block_id and store in block_type
-extern  int SIFS_getblocktype(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_BIT* block_type);
+extern  int SIFS_readblocktype(FILE* volume, SIFS_BLOCKID block_id, SIFS_VOLUME_HEADER vol_header, SIFS_BIT* block_type);
 
 
 // writter helpers

@@ -37,7 +37,7 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
         return 1;
     }
 
-    SIFS_getheader(vol, &header);
+    SIFS_readheader(vol, &header);
 
     parsed_path = SIFS_parsepathname(pathname, &path_depth);
 
@@ -46,12 +46,12 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
         return 1;
     }
 
-    if (SIFS_getdirblock(vol, parent_id, header, &parent) != 0)
+    if (SIFS_readdirblock(vol, parent_id, header, &parent) != 0)
     {
         return 1;
     }
 
-    if (SIFS_getfileblock(vol, target_id, header, &target) != 0)
+    if (SIFS_readfileblock(vol, target_id, header, &target) != 0)
     {
         return 1;
     }
@@ -76,13 +76,13 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
                 // Update fileindex in all dir that 'contain' target
                 for (size_t j = 0; j < header.blocksize; j++)
                 {
-                    if (SIFS_getblocktype(vol, j, header, &bit_buffer) != 0) {
+                    if (SIFS_readblocktype(vol, j, header, &bit_buffer) != 0) {
                         return 1;
                     }
 
                     if (bit_buffer == SIFS_DIR)
                     {
-                        SIFS_getdirblock(vol, j, header, &dir_buffer);
+                        SIFS_readdirblock(vol, j, header, &dir_buffer);
 
                         for (size_t entry_idx = 0; entry_idx < dir_buffer.nentries; entry_idx++)
                         {
@@ -109,7 +109,7 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
             }
 
             // Is possible that fileindex will have been altered, need to refresh parent
-            SIFS_getdirblock(vol, parent_id, header, &parent);
+            SIFS_readdirblock(vol, parent_id, header, &parent);
 
             // Remove reference in parent
             for (size_t j = i; j < parent.nentries - 1; j++)
