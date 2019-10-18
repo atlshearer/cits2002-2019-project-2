@@ -1,9 +1,6 @@
-//
-//  sifs_rmfile.c
-//  
-//
-//  Created by Alexander Shearer on 17/10/19.
-//
+//  CITS2002 Project 2 2019
+//  Name(s):             Alexander Shearer, Thomas Kinsella
+//  Student number(s):   22465777, 22177293
 
 #include <stdio.h>
 #include <stdlib.h>

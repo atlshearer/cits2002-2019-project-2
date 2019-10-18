@@ -1,3 +1,7 @@
+//  CITS2002 Project 2 2019
+//  Name(s):             Alexander Shearer, Thomas Kinsella
+//  Student number(s):   22465777, 22177293
+
 #include "sifs-internal.h"
 
 #include <stdio.h>
@@ -5,19 +9,7 @@
 
 // make a new directory within an existing volume
 int SIFS_mkdir(const char *volumename, const char *pathname)
-{
-    /*
-#define    SIFS_EINVAL    1    // Invalid argument
-#define    SIFS_ENOVOL    3    // No such volume
-#define    SIFS_ENOENT    4    // No such file or directory entry
-#define    SIFS_EEXIST    5    // Volume, file or directory already exists
-#define    SIFS_ENOTVOL    6    // Not a volume
-#define    SIFS_ENOTDIR    7    // Not a directory
-#define    SIFS_EMAXENTRY    9    // Too many directory or file entries
-#define    SIFS_ENOSPC    10    // No space left on volume
-#define    SIFS_ENOMEM    11    // Memory allocation failed
-     */
-    
+{  
     FILE *vol = fopen(volumename, "r+");
     SIFS_VOLUME_HEADER header;
     char** parsed_path = NULL;
@@ -32,7 +24,6 @@ int SIFS_mkdir(const char *volumename, const char *pathname)
     SIFS_BIT block_type;
     
 
-    //  VOLUME CREATION FAILED
     if (vol == NULL)
     {
         SIFS_errno = SIFS_ENOVOL;

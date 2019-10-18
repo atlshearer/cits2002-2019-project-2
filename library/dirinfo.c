@@ -1,3 +1,7 @@
+//  CITS2002 Project 2 2019
+//  Name(s):             Alexander Shearer, Thomas Kinsella
+//  Student number(s):   22465777, 22177293
+
 #include "sifs-internal.h"
 
 #include <stdio.h>
@@ -6,16 +10,7 @@
 // get information about a requested directory
 int SIFS_dirinfo(const char *volumename, const char *pathname,
                  char ***entrynames, uint32_t *nentries, time_t *modtime)
-{
-    /*
-#define    SIFS_EINVAL    1    // Invalid argument
-#define    SIFS_ENOVOL    3    // No such volume
-#define    SIFS_ENOENT    4    // No such file or directory entry
-#define    SIFS_ENOTVOL    6    // Not a volume
-#define    SIFS_ENOTDIR    7    // Not a directory
-#define    SIFS_ENOMEM    11    // Memory allocation failed
-     */
-    
+{    
     FILE *vol = fopen(volumename, "r");
     SIFS_VOLUME_HEADER header;
     char** parsed_path = NULL;
@@ -121,11 +116,11 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
                 break;
                 
             case SIFS_DATABLOCK:
-                SIFS_errno = SIFS_ENOTVOL; // If datablock is reference vol is malformed
+                SIFS_errno = SIFS_ENOTVOL; // If datablock is referenced volume is malformed
                 return 1;
                 
             default:
-                SIFS_errno = SIFS_ENOTVOL; // If blocktype is invalid vol is malformed
+                SIFS_errno = SIFS_ENOTVOL; // If blocktype is invalid volume is malformed
                 return 1;
         }
         
@@ -133,9 +128,10 @@ int SIFS_dirinfo(const char *volumename, const char *pathname,
         *(*entrynames + i) = name_cpy;
     }
 
+    // Cleanup
+
     fclose(vol);
     
-    // Free parsed_path
     SIFS_freeparsedpath(parsed_path);
     parsed_path = NULL;
 

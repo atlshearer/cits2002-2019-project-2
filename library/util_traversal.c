@@ -1,3 +1,7 @@
+//  CITS2002 Project 2 2019
+//  Name(s):             Alexander Shearer, Thomas Kinsella
+//  Student number(s):   22465777, 22177293
+
 #include "sifs-internal.h"
 
 #include <stdio.h>
@@ -39,10 +43,6 @@ static int validate_name(char name[SIFS_MAX_NAME_LENGTH])
 
 int SIFS_checkvolumeintegrity(FILE* volume, SIFS_VOLUME_HEADER vol_header)
 {
-    /*
-#define	SIFS_ENOTVOL	6	// Not a volume
-#define	SIFS_ENOMEM	11	// Memory allocation failed
-*/
     size_t total_size;
     SIFS_BIT block_type;
 
@@ -227,15 +227,7 @@ int SIFS_checkvolumeintegrity(FILE* volume, SIFS_VOLUME_HEADER vol_header)
 }
 
 int SIFS_getfileblockid(FILE* volume, char **parsed_path, size_t path_depth, SIFS_VOLUME_HEADER vol_header, SIFS_BLOCKID* parent, SIFS_BLOCKID* target)
-{
-    /*
-     #define    SIFS_EINVAL    1    // Invalid argument
-     #define    SIFS_ENOENT    4    // No such file or directory entry
-     #define    SIFS_ENOTVOL    6    // Not a volume
-     #define    SIFS_ENOTDIR    7    // Not a directory
-     #define    SIFS_ENOTFILE    8    // Not a file
-     */
-    
+{    
     SIFS_DIRBLOCK curr_dir;
     SIFS_DIRBLOCK next_dir;
     SIFS_BLOCKID curr_dir_id = 0;
@@ -331,10 +323,7 @@ int SIFS_getfileblockid(FILE* volume, char **parsed_path, size_t path_depth, SIF
             return 1;
         }
     }
-    
-    // curr_dir is parent
-    // file_block is target
-    
+        
     *parent = curr_dir_id;
     *target = file_block_id;
     
@@ -342,14 +331,7 @@ int SIFS_getfileblockid(FILE* volume, char **parsed_path, size_t path_depth, SIF
 }
 
 int SIFS_getdirblockid(FILE* volume, char **parsed_path, size_t path_depth, SIFS_VOLUME_HEADER vol_header, SIFS_BLOCKID* target)
-{
-    /*
-    #define    SIFS_EINVAL    1    // Invalid argument
-    #define    SIFS_ENOENT    4    // No such file or directory entry
-    #define    SIFS_ENOTVOL    6    // Not a volume
-    #define    SIFS_ENOTDIR    7    // Not a directory
-    */
-    
+{    
     SIFS_DIRBLOCK curr_dir;
     SIFS_DIRBLOCK next_dir;
     SIFS_BLOCKID curr_dir_id = 0;

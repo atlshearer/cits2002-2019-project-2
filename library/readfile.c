@@ -1,3 +1,7 @@
+//  CITS2002 Project 2 2019
+//  Name(s):             Alexander Shearer, Thomas Kinsella
+//  Student number(s):   22465777, 22177293
+
 #include "sifs-internal.h"
 
 #include <stdio.h>
@@ -7,16 +11,6 @@
 int SIFS_readfile(const char *volumename, const char *pathname,
 		  void **data, size_t *nbytes)
 {
-    /*
-     #define    SIFS_EINVAL    1    // Invalid argument
-     #define    SIFS_ENOVOL    3    // No such volume
-     #define    SIFS_ENOENT    4    // No such file or directory entry
-     #define    SIFS_ENOTVOL    6    // Not a volume
-     #define    SIFS_ENOTDIR    7    // Not a directory
-     #define    SIFS_ENOTFILE    8    // Not a file
-     #define    SIFS_ENOMEM    11    // Memory allocation failed
-     */
-
     FILE *vol = fopen(volumename, "r");
     SIFS_VOLUME_HEADER header;
     char** parsed_path = NULL;

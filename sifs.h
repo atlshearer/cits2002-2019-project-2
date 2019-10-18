@@ -1,3 +1,7 @@
+//  CITS2002 Project 2 2019
+//  Name(s):             Alexander Shearer, Thomas Kinsella
+//  Student number(s):   22465777, 22177293
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>

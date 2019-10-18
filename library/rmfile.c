@@ -1,3 +1,7 @@
+//  CITS2002 Project 2 2019
+//  Name(s):             Alexander Shearer, Thomas Kinsella
+//  Student number(s):   22465777, 22177293
+
 #include "sifs-internal.h"
 
 #include <stdio.h>
@@ -167,6 +171,9 @@ int SIFS_rmfile(const char *volumename, const char *pathname)
     }
 
     fclose(vol);
+
+    SIFS_freeparsedpath(parsed_path);
+    parsed_path = NULL;
 
     SIFS_errno = SIFS_EOK;
     return 0;
